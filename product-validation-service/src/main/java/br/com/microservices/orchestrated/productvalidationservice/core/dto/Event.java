@@ -16,10 +16,10 @@ import java.util.List;
 public class Event {
 
     private String id;
-    private String transactionId;
     private String orderId;
-    private String payload;
-    private String Source;
+    private String transactionId;
+    private Order payload;
+    private String source;
     private ESagaStatus status;
     private List<History> eventHistory;
     private LocalDateTime createdAt;

@@ -14,7 +14,7 @@ public class PaymentConsumer {
     private final JsonUtil jsonUtil;
 
     @KafkaListener(
-            groupId = "${spring.kafka.consumer.group-id",
+            groupId = "${spring.kafka.consumer.group-id}",
             topics = "${spring.kafka.topic.payment-success}"
     )
     public void consumeSuccessEvent(String payload) {
@@ -24,7 +24,7 @@ public class PaymentConsumer {
     }
 
     @KafkaListener(
-            groupId = "${spring.kafka.consumer.group-id",
+            groupId = "${spring.kafka.consumer.group-id}",
             topics = "${spring.kafka.topic.payment-fail}"
     )
     public void consumeFailEvent(String payload) {
