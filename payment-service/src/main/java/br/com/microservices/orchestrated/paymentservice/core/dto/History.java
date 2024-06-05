@@ -19,5 +19,4 @@ public class History {
     private String message;
     private LocalDateTime createdAt;
 
-
 }

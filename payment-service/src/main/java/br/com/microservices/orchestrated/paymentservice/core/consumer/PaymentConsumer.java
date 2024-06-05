@@ -21,6 +21,7 @@ public class PaymentConsumer {
         log.info("Receiving success event {} from payment-success topic", payload);
         var event = jsonUtil.toEvent(payload);
         log.info(event.toString());
+
     }
 
     @KafkaListener(
@@ -32,6 +33,4 @@ public class PaymentConsumer {
         var event = jsonUtil.toEvent(payload);
         log.info(event.toString());
     }
-
-
 }

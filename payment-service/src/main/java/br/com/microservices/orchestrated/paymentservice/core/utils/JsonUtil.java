@@ -6,6 +6,7 @@ import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 
+@Slf4j
 @Component
 @AllArgsConstructor
 public class JsonUtil {
@@ -16,6 +17,7 @@ public class JsonUtil {
         try {
             return objectMapper.writeValueAsString(object);
         } catch (Exception ex) {
+            log.error("Error converting object to JSON", ex);
             return "";
         }
     }
@@ -24,7 +26,9 @@ public class JsonUtil {
         try {
             return objectMapper.readValue(json, Event.class);
         } catch (Exception ex) {
+            log.error("Error to convert Json to Event. JSON {} ", json, ex);
             return null;
         }
     }
+
 }
