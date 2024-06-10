@@ -4,7 +4,6 @@ import br.com.microservices.orchestrated.productvalidationservice.config.excepti
 import br.com.microservices.orchestrated.productvalidationservice.core.dto.Event;
 import br.com.microservices.orchestrated.productvalidationservice.core.dto.History;
 import br.com.microservices.orchestrated.productvalidationservice.core.dto.OrderProducts;
-import br.com.microservices.orchestrated.productvalidationservice.core.enums.ESagaStatus;
 import br.com.microservices.orchestrated.productvalidationservice.core.model.Validation;
 import br.com.microservices.orchestrated.productvalidationservice.core.producer.KafkaProducer;
 import br.com.microservices.orchestrated.productvalidationservice.core.repository.ProductRepository;
@@ -16,7 +15,7 @@ import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
 
-import static br.com.microservices.orchestrated.productvalidationservice.core.enums.ESagaStatus.SUCCESS;
+import static br.com.microservices.orchestrated.productvalidationservice.core.enums.ESagaStatus.*;
 import static org.springframework.util.ObjectUtils.isEmpty;
 
 @Slf4j
@@ -30,70 +29,69 @@ public class ProductValidationService {
     private final KafkaProducer producer;
     private final ProductRepository productRepository;
     private final ValidationRepository validationRepository;
-    
-    public void validateExistingProducts(Event event){
+
+    public void validateExistingProducts(Event event) {
         try {
             checkCurrentValidation(event);
             createValidation(event, true);
             handleSuccess(event);
-        }catch (Exception ex){
-            log.error("Error trying to validate products: ", ex);
+        } catch (Exception ex) {
+            log.error("Error trying to validate product: ", ex);
             handleFailCurrentNotExecuted(event, ex.getMessage());
         }
         producer.sendEvent(jsonUtil.toJson(event));
     }
 
-
     private void validateProductsInformed(Event event) {
         if (isEmpty(event.getPayload()) || isEmpty(event.getPayload().getProducts())) {
-            throw new ValidationException("Products list is empty!");
+            throw new ValidationException("Product list is empty!");
         }
-        if (isEmpty(event.getPayload().getId()) || isEmpty(event.getPayload().getTransactionId())) {
-            throw new ValidationException("OrderId and TransactionID must be informed!");
+        if (isEmpty(event.getPayload().getId()) || isEmpty(event.getTransactionId())) {
+            throw new ValidationException("OrderID and TransactionID must be informed!");
         }
     }
 
     private void checkCurrentValidation(Event event) {
         validateProductsInformed(event);
         if (validationRepository.existsByOrderIdAndTransactionId(
-                event.getOrderId(), event.getTransactionId())){
-                    throw new ValidationException("Theres's another transactionId for this validation.");
+                event.getOrderId(), event.getTransactionId())) {
+            throw new ValidationException("There's another transactionId for this validation.");
         }
-        event.getPayload().getProducts().forEach(product ->{
+        event.getPayload().getProducts().forEach(product -> {
             validateProductInformed(product);
             validateExistingProduct(product.getProduct().getCode());
         });
     }
 
-    private void validateProductInformed(OrderProducts products){
-        if (isEmpty(products.getProduct()) || isEmpty(products.getProduct().getCode())){
-            throw new ValidationException("Product must be informed");
+    private void validateProductInformed(OrderProducts product) {
+        if (isEmpty(product.getProduct()) || isEmpty(product.getProduct().getCode())) {
+            throw new ValidationException("Product must be informed!");
         }
     }
 
-    private void validateExistingProduct(String code){
-        if(!productRepository.existsByCode(code)){
+    private void validateExistingProduct(String code) {
+        if (!productRepository.existsByCode(code)) {
             throw new ValidationException("Product does not exists in database!");
         }
     }
 
-    private void createValidation(Event event, boolean success){
+    private void createValidation(Event event, boolean success) {
         var validation = Validation
                 .builder()
                 .orderId(event.getPayload().getId())
                 .transactionId(event.getTransactionId())
                 .success(success)
                 .build();
-
+        validationRepository.save(validation);
     }
 
     private void handleSuccess(Event event) {
         event.setStatus(SUCCESS);
         event.setSource(CURRENT_SOURCE);
-        addHistory(event,"Products are validated successfully");
+        addHistory(event, "Products are validated successfully!");
     }
 
-    private void addHistory(Event event, String message){
+    private void addHistory(Event event, String message) {
         var history = History
                 .builder()
                 .source(event.getSource())
@@ -101,7 +99,31 @@ public class ProductValidationService {
                 .message(message)
                 .createdAt(LocalDateTime.now())
                 .build();
-            event.addToHistory(history);
+        event.addToHistory(history);
+    }
+
+    private void handleFailCurrentNotExecuted(Event event, String message) {
+        event.setStatus(ROLLBACK_PENDING);
+        event.setSource(CURRENT_SOURCE);
+        addHistory(event, "Fail to validate products: ".concat(message));
+    }
+
+    public void rollbackEvent(Event event) {
+        changeValidationToFail(event);
+        event.setStatus(FAIL);
+        event.setSource(CURRENT_SOURCE);
+        addHistory(event, "Rollback executed on product validation!");
+        producer.sendEvent(jsonUtil.toJson(event));
+    }
+
+    private void changeValidationToFail(Event event) {
+        validationRepository
+                .findByOrderIdAndTransactionId(event.getOrderId(), event.getTransactionId())
+                .ifPresentOrElse(validation -> {
+                            validation.setSuccess(false);
+                            validationRepository.save(validation);
+                        },
+                        () -> createValidation(event, false));
     }
 
 }

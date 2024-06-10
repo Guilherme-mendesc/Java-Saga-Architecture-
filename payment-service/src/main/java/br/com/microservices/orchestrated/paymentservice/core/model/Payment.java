@@ -1,21 +1,21 @@
-package br.com.microservices.orchestrated.productvalidationservice.core.model;
+package br.com.microservices.orchestrated.paymentservice.core.model;
 
+import br.com.microservices.orchestrated.paymentservice.core.enums.EPaymentStatus;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
-import org.springframework.cglib.core.Local;
 
 import java.time.LocalDateTime;
 
 @Data
 @Entity
 @Builder
-@AllArgsConstructor
 @NoArgsConstructor
-@Table(name = "validation")
-public class Validation {
+@AllArgsConstructor
+@Table(name = "payment")
+public class Payment {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -28,24 +28,31 @@ public class Validation {
     private String transactionId;
 
     @Column(nullable = false)
-    private boolean success;
+    private int totalItems;
 
-    @Column(nullable = false, updatable = false)
+    @Column(nullable = false)
+    private double totalAmount;
+
+    @Column(nullable = false)
+    @Enumerated(EnumType.STRING)
+    private EPaymentStatus status;
+
+    @Column(nullable = false)
     private LocalDateTime createdAt;
 
     @Column(nullable = false)
     private LocalDateTime updatedAt;
 
     @PrePersist
-    public void prePersist() {
+    public void prePersist(){
         var now = LocalDateTime.now();
-
-        createdAt = now;
-        updatedAt = now;
+        createdAt=now;
+        updatedAt=now;
+        status = EPaymentStatus.PENDING;
     }
 
     @PreUpdate
-    public void preUpdate() {
+    public void preUpdate(){
         updatedAt = LocalDateTime.now();
     }
 }
